@@ -4,3 +4,6 @@ updates:
     directory: "/" # root of your repo
     schedule:
       interval: "daily"
+    allow:
+      - dependency-type: "all"
+        update-type: "all"
