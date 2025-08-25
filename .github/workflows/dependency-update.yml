@@ -9,38 +9,33 @@ jobs:
   update-dependencies:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # Step 2: Set up Java
+      - name: Create new branch for dependency updates
+        run: |
+          git checkout -b dependency-update-${{ github.run_number }}
+
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      # Step 3: Run Maven Versions Plugin
-      - name: Update dependencies to latest releases
+      - name: Run Maven Versions Plugin
         run: mvn versions:use-latest-releases
 
-      # Step 4: Create a new branch for updates
-      - name: Create branch for dependency updates
-        run: git checkout -b dependency-update-${{ github.run_number }}
-
-      # Step 5: Commit changes
-      - name: Commit dependency updates
+      - name: Commit changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "chore: update dependencies" || echo "No changes to commit"
 
-      # Step 6: Open a Pull Request automatically
       - name: Create Pull Request for dependency updates
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }} # default token, no PAT required
+          token: ${{ secrets.GH_PAT }}
           commit-message: "chore: update dependencies"
           branch: dependency-update-${{ github.run_number }}
           title: "Dependency Updates"
