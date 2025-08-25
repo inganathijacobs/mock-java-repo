@@ -1,8 +1,0 @@
-version: 2
-updates:
-  - package-ecosystem: "maven"
-    directory: "/" # root of your repo
-    schedule:
-      interval: "daily"
-    allow:
-      - dependency-type: "all"
