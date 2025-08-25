@@ -2,8 +2,7 @@ name: Dependency Update Butler
 
 on:
   schedule:
-    - cron: "0 0 * * *" # daily at midnight UTC
-  workflow_dispatch: # manual trigger option
+    - cron: "*/5 * * * *" # every 5 minutes
 
 jobs:
   update-dependencies:
@@ -33,6 +32,7 @@ jobs:
           git commit -m "chore: update dependencies" || echo "No changes to commit"
 
       - name: Create Pull Request for dependency updates
+        id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GH_PAT }}
@@ -40,3 +40,9 @@ jobs:
           branch: dependency-update-${{ github.run_number }}
           title: "Dependency Updates"
           body: "This PR updates project dependencies to their latest releases."
+
+      - name: Enable auto-merge for PR
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
