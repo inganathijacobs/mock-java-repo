@@ -3,6 +3,7 @@ name: Dependency Update Butler
 on:
   schedule:
     - cron: "*/5 * * * *" # every 5 minutes
+  workflow_dispatch:
 
 jobs:
   update-dependencies:
