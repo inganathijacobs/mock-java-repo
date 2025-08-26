@@ -12,10 +12,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Create new branch for dependency updates
-        run: |
-          git checkout -b dependency-update-${{ github.run_number }}-${{ github.run_id }}
-
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
