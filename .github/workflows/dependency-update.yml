@@ -14,7 +14,7 @@ jobs:
 
       - name: Create new branch for dependency updates
         run: |
-          git checkout -b dependency-update-${{ github.run_number }}
+          git checkout -b dependency-update-${{ github.run_number }}-${{ github.run_id }}
 
       - name: Set up Java
         uses: actions/setup-java@v3
@@ -38,7 +38,7 @@ jobs:
         with:
           token: ${{ secrets.GH_PAT }}
           commit-message: "chore: update dependencies"
-          branch: dependency-update-${{ github.run_number }}
+          branch: dependency-update-${{ github.run_number }}-${{ github.run_id }}
           title: "Dependency Updates"
           body: "This PR updates project dependencies to their latest releases."
 
