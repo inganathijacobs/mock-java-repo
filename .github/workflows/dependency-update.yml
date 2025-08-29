@@ -25,11 +25,9 @@ jobs:
       - name: Update dependency ${{ matrix.dependency }}
         run: |
           mvn versions:use-latest-versions \
-           -Dincludes=com.fasterxml.jackson.core:jackson-databind \
-           -DallowSnapshots=true \
-           -DallowMajorUpdates=true \
-           -DallowIncrementalUpdates=true \
-           -DgenerateBackupPoms=false
+            -Dincludes=${{ matrix.dependency }} \
+            -DallowSnapshots=true \
+            -DgenerateBackupPoms=false
 
       - name: Commit changes for ${{ matrix.dependency }}
         id: commit
