@@ -23,7 +23,7 @@ jobs:
           java-version: 17
 
       - name: Update dependency ${{ matrix.dependency }}
-        run: mvn versions:use-latest-releases -Dincludes=${{ matrix.dependency }}
+        run: mvn versions:use-latest-versions -Dincludes=${{ matrix.dependency }} -DallowSnapshots=true
 
       - name: Commit changes for ${{ matrix.dependency }}
         id: commit
@@ -49,7 +49,7 @@ jobs:
           commit-message: "chore: update ${{ matrix.dependency }}"
           branch: dependency-update-${{ matrix.dependency }}
           title: "Dependency Update: ${{ matrix.dependency }}"
-          body: "This PR updates ${{ matrix.dependency }} to the latest release."
+          body: "This PR updates ${{ matrix.dependency }} to the latest version (including pre-releases)."
           create-if-no-existing: true
 
       - name: Enable auto-merge for PR
