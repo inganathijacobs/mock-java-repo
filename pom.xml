@@ -15,7 +15,6 @@
     </properties>
 
     <dependencies>
-
         <!-- A couple of dependencies to illustrate upgrades -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
