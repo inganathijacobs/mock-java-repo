@@ -23,7 +23,16 @@ jobs:
           java-version: 17
 
       - name: Update dependency ${{ matrix.dependency }}
-        run: mvn versions:use-latest-releases -Dincludes=${{ matrix.dependency }}
+        run: |
+          mvn versions:use-latest-versions \
+            -Dincludes=${{ matrix.dependency }} \
+            -DallowMajorUpdates=true \
+            -DgenerateBackupPoms=false
+
+          mvn versions:update-property \
+            -Dproperty=${{ matrix.dependency }}.version \
+            -DallowMajorUpdates=true \
+            -DgenerateBackupPoms=false || true
 
       - name: Commit changes for ${{ matrix.dependency }}
         id: commit
@@ -31,14 +40,12 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          # Check if there are changes to commit
           if git diff-index --quiet HEAD --; then
             echo "No changes to commit"
             echo "changes=false" >> $GITHUB_OUTPUT
           else
             git commit -m "chore: update ${{ matrix.dependency }}"
             echo "changes=true" >> $GITHUB_OUTPUT
-          fi
 
       - name: Create or update Pull Request for ${{ matrix.dependency }}
         if: steps.commit.outputs.changes == 'true'
@@ -51,6 +58,11 @@ jobs:
           title: "Dependency Update: ${{ matrix.dependency }}"
           body: "This PR updates ${{ matrix.dependency }} to the latest release."
           create-if-no-existing: true
+          labels: ${{ fromJSON('{"jackson-databind":"library","junit":"test","maven-compiler-plugin":"plugin"}')[matrix.dependency] }}
+
+      - name: Build and test
+        if: steps.commit.outputs.changes == 'true'
+        run: mvn clean verify
 
       - name: Enable auto-merge for PR
         if: steps.cpr.outputs.pull-request-number != ''
