@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dependency: [jackson-databind, junit, maven-compiler-plugin] # list dependencies
+        dependency: [jackson-databind, junit, maven-compiler-plugin]
 
     steps:
       - name: Checkout repository
@@ -31,14 +31,13 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          # Check if there are changes to commit
           if git diff-index --quiet HEAD --; then
             echo "No changes to commit"
             echo "changes=false" >> $GITHUB_OUTPUT
           else
             git commit -m "chore: update ${{ matrix.dependency }}"
             echo "changes=true" >> $GITHUB_OUTPUT
-          fi
+        shell: bash
 
       - name: Create or update Pull Request for ${{ matrix.dependency }}
         if: steps.commit.outputs.changes == 'true'
@@ -57,9 +56,12 @@ jobs:
         if: steps.cpr.outputs.pull-request-number != ''
         run: mvn clean verify
         working-directory: ${{ github.workspace }}
+        shell: bash
 
       - name: Enable auto-merge for PR
         if: steps.cpr.outputs.pull-request-number != ''
-        run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
+        run: |
+          gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        shell: bash
