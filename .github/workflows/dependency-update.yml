@@ -2,7 +2,7 @@ name: Dependency Update Butler
 
 on:
   schedule:
-    - cron: "*/5 * * * *" # every 5 minutes
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -22,14 +22,25 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Get old version for ${{ matrix.dependency }}
+        id: oldver
+        run: |
+          OLD_VERSION=$(grep -A 1 "<artifactId>${{ matrix.dependency }}</artifactId>" pom.xml | grep "<version>" | sed -E 's/.*<version>(.*)<\/version>.*/\1/')
+          echo "old_version=$OLD_VERSION" >> $GITHUB_OUTPUT
+
       - name: Update dependency ${{ matrix.dependency }}
         run: |
-          mvn versions:use-latest-versions \
-           -Dincludes=${{ matrix.dependency }} \
-           -DallowSnapshots=true \
-           -DallowMajorUpdates=true \
-           -DallowIncrementalUpdates=true \
-           -DgenerateBackupPoms=false
+          if [ "${{ matrix.dependency }}" = "maven-compiler-plugin" ]; then
+            mvn versions:use-latest-versions -Dincludes=maven-compiler-plugin -Dtype=plugin -DgenerateBackupPoms=false
+          else
+            mvn versions:use-latest-versions -Dincludes=${{ matrix.dependency }} -DgenerateBackupPoms=false
+          fi
+
+      - name: Get new version for ${{ matrix.dependency }}
+        id: newver
+        run: |
+          NEW_VERSION=$(grep -A 1 "<artifactId>${{ matrix.dependency }}</artifactId>" pom.xml | grep "<version>" | sed -E 's/.*<version>(.*)<\/version>.*/\1/')
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Commit changes for ${{ matrix.dependency }}
         id: commit
@@ -41,7 +52,7 @@ jobs:
             echo "No changes to commit"
             echo "changes=false" >> $GITHUB_OUTPUT
           else
-            git commit -m "chore: update ${{ matrix.dependency }}"
+            git commit -m "chore: bump ${{ matrix.dependency }} from ${{ steps.oldver.outputs.old_version }} to ${{ steps.newver.outputs.new_version }}"
             echo "changes=true" >> $GITHUB_OUTPUT
           fi
 
@@ -51,10 +62,10 @@ jobs:
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GH_PAT }}
-          commit-message: "chore: update ${{ matrix.dependency }}"
+          commit-message: "chore: bump ${{ matrix.dependency }} from ${{ steps.oldver.outputs.old_version }} to ${{ steps.newver.outputs.new_version }}"
           branch: dependency-update-${{ matrix.dependency }}
-          title: "Dependency Update: ${{ matrix.dependency }}"
-          body: "This PR updates ${{ matrix.dependency }} to the latest version (including pre-releases)."
+          title: "Bump ${{ matrix.dependency }} from ${{ steps.oldver.outputs.old_version }} to ${{ steps.newver.outputs.new_version }}"
+          body: "This PR updates `${{ matrix.dependency }}` from `${{ steps.oldver.outputs.old_version }}` to `${{ steps.newver.outputs.new_version }}`."
           create-if-no-existing: true
 
       - name: Checkout PR branch
@@ -68,8 +79,4 @@ jobs:
         if: steps.cpr.outputs.pull-request-number != ''
         run: mvn clean verify
 
-      # - name: Enable auto-merge for PR
-      #   if: steps.cpr.outputs.pull-request-number != ''
-      #   run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+      # No auto-merge step; manual review required
