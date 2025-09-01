@@ -41,7 +41,6 @@ jobs:
           else
             git commit -m "chore: update ${{ matrix.dependency }}"
             echo "changes=true" >> $GITHUB_OUTPUT
-          fi
 
       # 5️⃣ Create or update PR
       - name: Create or update Pull Request for ${{ matrix.dependency }}
@@ -70,13 +69,20 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           UPDATED="${{ matrix.dependency }}"
-          SUMMARY=$(curl -s https://api.openai.com/v1/chat/completions \
+
+          RESPONSE=$(curl -s -X POST https://api.openai.com/v1/chat/completions \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $OPENAI_API_KEY" \
             -d "{
               \"model\": \"gpt-4o-mini\",
               \"messages\": [{\"role\": \"user\", \"content\": \"Summarize the update of dependency: $UPDATED\"}]
-            }" | jq -r '.choices[0].message.content')
+            }")
+
+          SUMMARY=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "No summary returned; check API response."')
 
           echo "AI Summary for $UPDATED:"
           echo "$SUMMARY"
+
+          # Optional: output raw response for debugging
+          echo "Raw API response:"
+          echo "$RESPONSE"
