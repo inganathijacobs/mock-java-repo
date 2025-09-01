@@ -41,9 +41,6 @@ jobs:
           branch: dependency-update-${{ github.run_number }}
           title: "Dependency Updates"
           body: "This PR updates project dependencies to their latest releases."
+          create-if-no-existing: true
 
-      - name: Enable auto-merge for PR
-        if: steps.cpr.outputs.pull-request-number != ''
-        run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+      # Auto-merge removed for manual review
