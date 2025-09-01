@@ -10,20 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dependency: [jackson-databind, junit, maven-compiler-plugin]
+        dependency: [jackson-databind, junit, maven-compiler-plugin] # replace with dynamic list if needed
+
     steps:
+      # 1️⃣ Checkout
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # 2️⃣ Setup Java
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
+      # 3️⃣ Update dependency
       - name: Update dependency ${{ matrix.dependency }}
         run: mvn versions:use-latest-releases -Dincludes=${{ matrix.dependency }}
 
+      # 4️⃣ Commit changes if any
       - name: Commit changes for ${{ matrix.dependency }}
         id: commit
         run: |
@@ -38,6 +43,7 @@ jobs:
             echo "changes=true" >> $GITHUB_OUTPUT
           fi
 
+      # 5️⃣ Create or update PR
       - name: Create or update Pull Request for ${{ matrix.dependency }}
         if: steps.commit.outputs.changes == 'true'
         id: cpr
@@ -50,32 +56,27 @@ jobs:
           body: "This PR updates ${{ matrix.dependency }} to the latest release."
           create-if-no-existing: true
 
-      - name: Build and Test
+      # 6️⃣ Build & Test on PR branch
+      - name: Build & Test
         if: steps.commit.outputs.changes == 'true'
-        run: mvn clean verify
-
-      - name: Generate AI Dependency Update Summary
-        if: steps.commit.outputs.changes == 'true' && steps.cpr.outputs.pull-request-number != ''
-        id: ai-summary
         run: |
-          UPDATED_DEPENDENCIES=$(git log -1 --pretty=format:"%s")
+          git checkout dependency-update-${{ matrix.dependency }}
+          mvn clean install
+
+      # 7️⃣ Post AI summary
+      - name: Post AI Dependency Summary
+        if: steps.commit.outputs.changes == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          UPDATED="${{ matrix.dependency }}"
           SUMMARY=$(curl -s https://api.openai.com/v1/chat/completions \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
             -d "{
               \"model\": \"gpt-4o-mini\",
-              \"messages\": [
-                {\"role\": \"system\", \"content\": \"You are a helpful assistant that writes concise, clear summaries of dependency updates.\"},
-                {\"role\": \"user\", \"content\": \"Generate a summary for the following dependency updates: $UPDATED_DEPENDENCIES\"}
-              ]
+              \"messages\": [{\"role\": \"user\", \"content\": \"Summarize the update of dependency: $UPDATED\"}]
             }" | jq -r '.choices[0].message.content')
-          echo "summary<<EOF" >> $GITHUB_OUTPUT
-          echo "$SUMMARY" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Post AI Summary as PR Comment
-        if: steps.commit.outputs.changes == 'true' && steps.cpr.outputs.pull-request-number != ''
-        run: |
-          gh pr comment ${{ steps.cpr.outputs.pull-request-number }} --body "${{ steps.ai-summary.outputs.summary }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          echo "AI Summary for $UPDATED:"
+          echo "$SUMMARY"
