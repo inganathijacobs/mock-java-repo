@@ -8,13 +8,13 @@ on:
 jobs:
   update-dependencies:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        dependency: [jackson-databind, junit, maven-compiler-plugin] # list dependencies
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Create new branch for dependency updates
+        run: |
+          git checkout -b dependency-update-${{ github.run_number }}
 
       - name: Set up Java
         uses: actions/setup-java@v3
@@ -22,41 +22,25 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Update dependency ${{ matrix.dependency }}
-        run: |
-          mvn versions:use-latest-versions \
-           -Dincludes=com.fasterxml.jackson.core:jackson-databind \
-           -DallowSnapshots=true \
-           -DallowMajorUpdates=true \
-           -DallowIncrementalUpdates=true \
-           -DgenerateBackupPoms=false
+      - name: Run Maven Versions Plugin
+        run: mvn versions:use-latest-releases
 
-      - name: Commit changes for ${{ matrix.dependency }}
-        id: commit
+      - name: Commit changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          # Check if there are changes to commit
-          if git diff-index --quiet HEAD --; then
-            echo "No changes to commit"
-            echo "changes=false" >> $GITHUB_OUTPUT
-          else
-            git commit -m "chore: update ${{ matrix.dependency }}"
-            echo "changes=true" >> $GITHUB_OUTPUT
-          fi
+          git commit -m "chore: update dependencies" || echo "No changes to commit"
 
-      - name: Create or update Pull Request for ${{ matrix.dependency }}
-        if: steps.commit.outputs.changes == 'true'
+      - name: Create Pull Request for dependency updates
         id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GH_PAT }}
-          commit-message: "chore: update ${{ matrix.dependency }}"
-          branch: dependency-update-${{ matrix.dependency }}
-          title: "Dependency Update: ${{ matrix.dependency }}"
-          body: "This PR updates ${{ matrix.dependency }} to the latest version (including pre-releases)."
-          create-if-no-existing: true
+          commit-message: "chore: update dependencies"
+          branch: dependency-update-${{ github.run_number }}
+          title: "Dependency Updates"
+          body: "This PR updates project dependencies to their latest releases."
 
       - name: Enable auto-merge for PR
         if: steps.cpr.outputs.pull-request-number != ''
