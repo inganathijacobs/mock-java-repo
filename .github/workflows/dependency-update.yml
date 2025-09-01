@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dependency: [jackson-databind, junit, maven-compiler-plugin] # list dependencies
+        dependency: [jackson-databind, junit, maven-compiler-plugin]
 
     steps:
       - name: Checkout repository
@@ -25,7 +25,7 @@ jobs:
       - name: Update dependency ${{ matrix.dependency }}
         run: |
           mvn versions:use-latest-versions \
-           -Dincludes=com.fasterxml.jackson.core:jackson-databind \
+           -Dincludes=${{ matrix.dependency }} \
            -DallowSnapshots=true \
            -DallowMajorUpdates=true \
            -DallowIncrementalUpdates=true \
@@ -37,7 +37,6 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          # Check if there are changes to commit
           if git diff-index --quiet HEAD --; then
             echo "No changes to commit"
             echo "changes=false" >> $GITHUB_OUTPUT
@@ -58,8 +57,19 @@ jobs:
           body: "This PR updates ${{ matrix.dependency }} to the latest version (including pre-releases)."
           create-if-no-existing: true
 
-      - name: Enable auto-merge for PR
+      - name: Checkout PR branch
         if: steps.cpr.outputs.pull-request-number != ''
-        run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          PR_BRANCH=$(gh pr view ${{ steps.cpr.outputs.pull-request-number }} --json headRefName -q .headRefName)
+          git fetch origin $PR_BRANCH:$PR_BRANCH
+          git checkout $PR_BRANCH
+
+      - name: Build and Test PR branch
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: mvn clean verify
+
+      # - name: Enable auto-merge for PR
+      #   if: steps.cpr.outputs.pull-request-number != ''
+      #   run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GH_PAT }}
