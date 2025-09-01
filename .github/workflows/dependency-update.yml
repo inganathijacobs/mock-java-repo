@@ -1,4 +1,4 @@
-name: Dependency Update Butler with AI Summary
+name: Dependency Update Butler
 
 on:
   schedule:
@@ -10,39 +10,42 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dependency: [jackson-databind, junit, maven-compiler-plugin] # replace with dynamic list if needed
+        dependency: [jackson-databind, junit, maven-compiler-plugin] # list dependencies
 
     steps:
-      # 1️⃣ Checkout
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Setup Java
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      # 3️⃣ Update dependency
       - name: Update dependency ${{ matrix.dependency }}
-        run: mvn versions:use-latest-releases -Dincludes=${{ matrix.dependency }}
+        run: |
+          mvn versions:use-latest-versions \
+           -Dincludes=com.fasterxml.jackson.core:jackson-databind \
+           -DallowSnapshots=true \
+           -DallowMajorUpdates=true \
+           -DallowIncrementalUpdates=true \
+           -DgenerateBackupPoms=false
 
-      # 4️⃣ Commit changes if any
       - name: Commit changes for ${{ matrix.dependency }}
         id: commit
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
+          # Check if there are changes to commit
           if git diff-index --quiet HEAD --; then
             echo "No changes to commit"
             echo "changes=false" >> $GITHUB_OUTPUT
           else
             git commit -m "chore: update ${{ matrix.dependency }}"
             echo "changes=true" >> $GITHUB_OUTPUT
+          fi
 
-      # 5️⃣ Create or update PR
       - name: Create or update Pull Request for ${{ matrix.dependency }}
         if: steps.commit.outputs.changes == 'true'
         id: cpr
@@ -52,37 +55,11 @@ jobs:
           commit-message: "chore: update ${{ matrix.dependency }}"
           branch: dependency-update-${{ matrix.dependency }}
           title: "Dependency Update: ${{ matrix.dependency }}"
-          body: "This PR updates ${{ matrix.dependency }} to the latest release."
+          body: "This PR updates ${{ matrix.dependency }} to the latest version (including pre-releases)."
           create-if-no-existing: true
 
-      # 6️⃣ Build & Test on PR branch
-      - name: Build & Test
-        if: steps.commit.outputs.changes == 'true'
-        run: |
-          git checkout dependency-update-${{ matrix.dependency }}
-          mvn clean install
-
-      # 7️⃣ Post AI summary
-      - name: Post AI Dependency Summary
-        if: steps.commit.outputs.changes == 'true'
+      - name: Enable auto-merge for PR
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          UPDATED="${{ matrix.dependency }}"
-
-          RESPONSE=$(curl -s -X POST https://api.openai.com/v1/chat/completions \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
-            -d "{
-              \"model\": \"gpt-4o-mini\",
-              \"messages\": [{\"role\": \"user\", \"content\": \"Summarize the update of dependency: $UPDATED\"}]
-            }")
-
-          SUMMARY=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "No summary returned; check API response."')
-
-          echo "AI Summary for $UPDATED:"
-          echo "$SUMMARY"
-
-          # Optional: output raw response for debugging
-          echo "Raw API response:"
-          echo "$RESPONSE"
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
