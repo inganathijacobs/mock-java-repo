@@ -40,7 +40,7 @@ jobs:
         shell: bash
 
       - name: Create or update Pull Request for ${{ matrix.dependency }}
-        if: steps.commit.outputs.changes == 'true'
+        if: ${{ steps.commit.outputs.changes == 'true' }}
         id: cpr
         uses: peter-evans/create-pull-request@v5
         with:
@@ -53,13 +53,13 @@ jobs:
           labels: "dependency-update, ${{ matrix.dependency }}"
 
       - name: Run build & tests
-        if: steps.cpr.outputs.pull-request-number != ''
+        if: ${{ steps.cpr.outputs.pull-request-number != '' }}
         run: mvn clean verify
         working-directory: ${{ github.workspace }}
         shell: bash
 
       - name: Enable auto-merge for PR
-        if: steps.cpr.outputs.pull-request-number != ''
+        if: ${{ steps.cpr.outputs.pull-request-number != '' }}
         run: |
           gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
         env:
