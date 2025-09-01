@@ -1,79 +1,70 @@
-name: Dependency Upgrade
+name: Dependency Update Butler
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: "0 3 * * 1" # Every Monday at 3am UTC
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+    - cron: "*/5 * * * *" # every 5 minutes
+  workflow_dispatch:
 
 jobs:
-  upgrade-dependencies:
+  update-dependencies:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
+    strategy:
+      matrix:
+        dependency: [jackson-databind, junit, maven-compiler-plugin]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Set up JDK
-        uses: actions/setup-java@v4
+      - name: Set up Java
+        uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
+      - name: Update dependency ${{ matrix.dependency }}
+        run: mvn versions:use-latest-releases -Dincludes=${{ matrix.dependency }}
 
-      - name: Update Maven dependencies
-        run: |
-          mvn versions:use-latest-releases -Dincludes="com.fasterxml.jackson.core:*"
-          mvn versions:use-latest-releases
-          mvn versions:commit
-
-      - name: Build & Test
-        run: mvn clean install --batch-mode --update-snapshots
-
-      - name: Configure git
+      - name: Commit changes for ${{ matrix.dependency }}
+        id: commit
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit changes
-        run: |
-          if [[ -n "$(git status --porcelain)" ]]; then
-            git checkout -b dependency-upgrade || git checkout dependency-upgrade
-            git add .
-            git commit -m "chore: upgrade dependencies"
-            git push origin HEAD:dependency-upgrade
+          git add .
+          # Check if there are changes to commit
+          if git diff-index --quiet HEAD --; then
+            echo "No changes to commit"
+            echo "changes=false" >> $GITHUB_OUTPUT
           else
-            echo "No dependency updates found"
+            git commit -m "chore: update ${{ matrix.dependency }}"
+            echo "changes=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create or update PR
-        if: always()
-        uses: peter-evans/create-pull-request@v6
+      - name: Create or update Pull Request for ${{ matrix.dependency }}
+        if: steps.commit.outputs.changes == 'true'
+        id: cpr
+        uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: dependency-upgrade
-          title: "chore: upgrade dependencies"
-          body: "Automated dependency upgrade via GitHub Actions."
-          commit-message: "chore: upgrade dependencies"
-          labels: dependencies
-          draft: false
+          token: ${{ secrets.GH_PAT }}
+          commit-message: "chore: update ${{ matrix.dependency }}"
+          branch: dependency-update-${{ matrix.dependency }}
+          title: "Dependency Update: ${{ matrix.dependency }}"
+          body: "This PR updates ${{ matrix.dependency }} to the latest release."
+          create-if-no-existing: true
 
-      - name: Enable auto-merge
-        if: always()
-        run: |
-          gh pr merge --auto --merge dependency-upgrade || echo "PR not found"
+      # Checkout the PR branch to build & test
+      - name: Checkout PR branch
+        if: steps.cpr.outputs.pull-request-number != ''
+        uses: actions/checkout@v3
+        with:
+          ref: dependency-update-${{ matrix.dependency }}
+
+      - name: Build & Test
+        if: steps.cpr.outputs.pull-request-number != ''
+        run: mvn clean install --batch-mode
+
+      - name: Enable auto-merge for PR
+        if: success() && steps.cpr.outputs.pull-request-number != ''
+        run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
