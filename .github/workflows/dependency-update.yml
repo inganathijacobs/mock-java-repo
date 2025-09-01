@@ -23,7 +23,7 @@ jobs:
           java-version: 17
 
       - name: Update dependency ${{ matrix.dependency }}
-        run: mvn versions:use-latest-version -Dincludes=${{ matrix.dependency }}
+        run: mvn versions:use-latest-versions -Dincludes=${{ matrix.dependency }}
 
       - name: Commit changes for ${{ matrix.dependency }}
         id: commit
