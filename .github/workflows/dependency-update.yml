@@ -58,8 +58,8 @@ jobs:
           body: "This PR updates ${{ matrix.dependency }} to the latest version (including pre-releases)."
           create-if-no-existing: true
 
-      - name: Enable auto-merge for PR
-        if: steps.cpr.outputs.pull-request-number != ''
-        run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+      # - name: Enable auto-merge for PR
+      #   if: steps.cpr.outputs.pull-request-number != ''
+      #   run: gh pr merge ${{ steps.cpr.outputs.pull-request-number }} --merge --auto
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GH_PAT }}
