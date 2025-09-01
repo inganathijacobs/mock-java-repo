@@ -34,11 +34,16 @@ jobs:
           fi
 
       - name: Commit changes for ${{ matrix.dependency }}
+        id: commit
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "chore: update ${{ matrix.dependency }}" || echo "No changes to commit"
+          if git diff-index --quiet HEAD --; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "chore: update ${{ matrix.dependency }}"
+            echo "changes=true" >> $GITHUB_OUTPUT
 
       - name: Create or update Pull Request for ${{ matrix.dependency }}
         if: steps.commit.outputs.changes == 'true'
