@@ -2,7 +2,7 @@ name: Dependency Update Butler
 
 on:
   schedule:
-    - cron: "*/5 * * * *" # every 5 minutes
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dependency: [jackson-databind, junit, maven-compiler-plugin] # add any dependency here
+        dependency: [jackson-databind, junit, maven-compiler-plugin]
 
     steps:
       - name: Checkout repository
@@ -21,6 +21,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh
 
       - name: Update dependency ${{ matrix.dependency }}
         run: |
