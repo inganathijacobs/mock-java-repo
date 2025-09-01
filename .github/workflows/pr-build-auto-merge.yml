@@ -1,0 +1,28 @@
+name: PR Build and Auto-Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build-test-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build and Test
+        run: mvn clean install
+
+      - name: Enable Auto-Merge if build passes
+        if: success()
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --merge --auto
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
